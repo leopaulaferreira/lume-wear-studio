@@ -1,37 +1,42 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { CartProvider } from "@/context/CartContext";
-import Index from "./pages/Index";
-import Collection from "./pages/Collection";
-import ProductDetail from "./pages/ProductDetail";
-import Checkout from "./pages/Checkout";
-import NotFound from "./pages/NotFound";
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { ScrollToTop } from '@/components/ScrollToTop';
+import { CartProvider } from '@/context/CartContext';
 
-const queryClient = new QueryClient();
+const Home = lazy(() => import('./pages/Index'));
+const Collection = lazy(() => import('./pages/Collection'));
+const ProductDetail = lazy(() => import('./pages/ProductDetail'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const InfoPage = lazy(() => import('./pages/InfoPage'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+function RouteLoader() {
+  return <div className="route-loader" role="status"><span /><span className="sr-only">Carregando página</span></div>;
+}
+
+export function AppRoutes() {
+  return (
+    <Suspense fallback={<RouteLoader />}>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/colecao" element={<Collection />} />
+        <Route path="/produto/:id" element={<ProductDetail />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/ajuda/:topic" element={<InfoPage />} />
+        <Route path="/kits" element={<Navigate to="/colecao" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
       <CartProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/colecao" element={<Collection />} />
-            <Route path="/produto/:id" element={<ProductDetail />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/kits" element={<Collection />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <ScrollToTop />
+        <AppRoutes />
       </CartProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
-
-export default App;
+    </BrowserRouter>
+  );
+}

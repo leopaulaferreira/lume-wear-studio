@@ -1,7 +1,8 @@
 import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
-import { FilterState } from '@/types/product';
-import { priceRanges, genders, colorOptions, sizeOptions, categories } from '@/data/products';
+import { useState, type ReactNode } from 'react';
+import { categories, colorOptions, genders, priceRanges, sizeOptions } from '@/data/products';
+import { countActiveFilters, emptyFilters } from '@/lib/catalog';
+import type { FilterState } from '@/types/product';
 
 interface FilterSidebarProps {
   filters: FilterState;
@@ -10,169 +11,138 @@ interface FilterSidebarProps {
 
 interface FilterSectionProps {
   title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-function FilterSection({ title, defaultOpen = true, children }: FilterSectionProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+function FilterSection({ title, children }: FilterSectionProps) {
+  const [open, setOpen] = useState(true);
 
   return (
-    <div className="border-b border-border pb-5">
+    <section className="filter-section">
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full py-2 text-left"
+        type="button"
+        className="filter-section__trigger"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
       >
-        <span className="text-xs tracking-wider uppercase font-medium">{title}</span>
-        <ChevronDown
-          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-        />
+        {title}
+        <ChevronDown aria-hidden="true" className={open ? 'is-open' : undefined} />
       </button>
-      {isOpen && <div className="mt-3 space-y-2.5">{children}</div>}
+      {open && <div className="filter-section__content">{children}</div>}
+    </section>
+  );
+}
+
+export function FilterPanel({ filters, onFilterChange }: FilterSidebarProps) {
+  const toggle = (type: keyof FilterState, value: string) => {
+    const current = filters[type] as readonly string[];
+    const next = current.includes(value)
+      ? current.filter((item) => item !== value)
+      : [...current, value];
+    onFilterChange({ ...filters, [type]: next });
+  };
+
+  return (
+    <div className="filter-panel">
+      <FilterSection title="Categoria">
+        {categories.map((category) => (
+          <label key={category.value} className="check-option">
+            <input
+              type="checkbox"
+              checked={filters.categories.includes(category.value)}
+              onChange={() => toggle('categories', category.value)}
+            />
+            <span aria-hidden="true" />
+            {category.label}
+          </label>
+        ))}
+      </FilterSection>
+
+      <FilterSection title="Modelagem">
+        {genders.map((gender) => (
+          <label key={gender.value} className="check-option">
+            <input
+              type="checkbox"
+              checked={filters.genders.includes(gender.value)}
+              onChange={() => toggle('genders', gender.value)}
+            />
+            <span aria-hidden="true" />
+            {gender.label}
+          </label>
+        ))}
+      </FilterSection>
+
+      <FilterSection title="Preço">
+        {priceRanges.map((range) => (
+          <label key={range.value} className="check-option">
+            <input
+              type="checkbox"
+              checked={filters.priceRanges.includes(range.value)}
+              onChange={() => toggle('priceRanges', range.value)}
+            />
+            <span aria-hidden="true" />
+            {range.label}
+          </label>
+        ))}
+      </FilterSection>
+
+      <FilterSection title="Cor">
+        <div className="color-filter" role="group" aria-label="Filtrar por cor">
+          {colorOptions.map((color) => {
+            const selected = filters.colors.includes(color.id);
+            return (
+              <button
+                key={color.id}
+                type="button"
+                className={selected ? 'color-filter__option is-active' : 'color-filter__option'}
+                onClick={() => toggle('colors', color.id)}
+                aria-pressed={selected}
+                aria-label={color.name}
+              >
+                <span style={{ backgroundColor: color.hex }} aria-hidden="true" />
+              </button>
+            );
+          })}
+        </div>
+      </FilterSection>
+
+      <FilterSection title="Tamanho">
+        <div className="size-filter" role="group" aria-label="Filtrar por tamanho">
+          {sizeOptions.map((size) => {
+            const selected = filters.sizes.includes(size);
+            return (
+              <button
+                key={size}
+                type="button"
+                className={selected ? 'is-active' : undefined}
+                onClick={() => toggle('sizes', size)}
+                aria-pressed={selected}
+              >
+                {size}
+              </button>
+            );
+          })}
+        </div>
+      </FilterSection>
+
+      {countActiveFilters(filters) > 0 && (
+        <button type="button" className="text-link filter-panel__clear" onClick={() => onFilterChange(emptyFilters)}>
+          Limpar todos os filtros
+        </button>
+      )}
     </div>
   );
 }
 
-export function FilterSidebar({ filters, onFilterChange }: FilterSidebarProps) {
-  const handleCheckboxChange = (
-    type: keyof FilterState,
-    value: string,
-    checked: boolean
-  ) => {
-    const currentValues = filters[type];
-    const newValues = checked
-      ? [...currentValues, value]
-      : currentValues.filter((v) => v !== value);
-    onFilterChange({ ...filters, [type]: newValues });
-  };
-
+export function FilterSidebar(props: FilterSidebarProps) {
   return (
-    <aside className="w-72 flex-shrink-0 pr-8">
-      <div className="sticky top-28 space-y-5">
-        <h2 className="text-lg font-medium tracking-tight mb-6">Filtros</h2>
-
-        {/* Price */}
-        <FilterSection title="Preço">
-          {priceRanges.map((range) => (
-            <label key={range.value} className="flex items-center gap-3 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={filters.priceRange.includes(range.value)}
-                onChange={(e) =>
-                  handleCheckboxChange('priceRange', range.value, e.target.checked)
-                }
-                className="filter-checkbox"
-              />
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                {range.label}
-              </span>
-            </label>
-          ))}
-        </FilterSection>
-
-        {/* Categories */}
-        <FilterSection title="Categoria">
-          {categories.map((category) => (
-            <label key={category} className="flex items-center gap-3 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={filters.categories.includes(category)}
-                onChange={(e) =>
-                  handleCheckboxChange('categories', category, e.target.checked)
-                }
-                className="filter-checkbox"
-              />
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors capitalize">
-                {category}
-              </span>
-            </label>
-          ))}
-        </FilterSection>
-
-        {/* Gender */}
-        <FilterSection title="Gênero">
-          {genders.map((gender) => (
-            <label key={gender.value} className="flex items-center gap-3 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={filters.genders.includes(gender.value)}
-                onChange={(e) =>
-                  handleCheckboxChange('genders', gender.value, e.target.checked)
-                }
-                className="filter-checkbox"
-              />
-              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                {gender.label}
-              </span>
-            </label>
-          ))}
-        </FilterSection>
-
-        {/* Colors */}
-        <FilterSection title="Cor">
-          <div className="flex flex-wrap gap-2">
-            {colorOptions.map((color) => (
-              <button
-                key={color.hex}
-                onClick={() =>
-                  handleCheckboxChange(
-                    'colors',
-                    color.hex,
-                    !filters.colors.includes(color.hex)
-                  )
-                }
-                className={`w-7 h-7 rounded-full border-2 transition-all duration-200 ${
-                  filters.colors.includes(color.hex)
-                    ? 'border-foreground scale-110'
-                    : 'border-lume-gray-200 hover:border-lume-gray-400'
-                }`}
-                style={{ backgroundColor: color.hex }}
-                title={color.name}
-              />
-            ))}
-          </div>
-        </FilterSection>
-
-        {/* Sizes */}
-        <FilterSection title="Tamanho">
-          <div className="flex flex-wrap gap-2">
-            {sizeOptions.slice(0, 6).map((size) => (
-              <button
-                key={size}
-                onClick={() =>
-                  handleCheckboxChange(
-                    'sizes',
-                    size,
-                    !filters.sizes.includes(size)
-                  )
-                }
-                className={`w-10 h-10 flex items-center justify-center text-xs border transition-all duration-200 ${
-                  filters.sizes.includes(size)
-                    ? 'border-foreground bg-foreground text-background'
-                    : 'border-border hover:border-foreground'
-                }`}
-              >
-                {size}
-              </button>
-            ))}
-          </div>
-        </FilterSection>
-
-        {/* Clear Filters */}
-        <button
-          onClick={() =>
-            onFilterChange({
-              priceRange: [],
-              categories: [],
-              genders: [],
-              colors: [],
-              sizes: [],
-            })
-          }
-          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
-        >
-          Limpar filtros
-        </button>
+    <aside className="collection-sidebar" aria-label="Filtros da coleção">
+      <div className="collection-sidebar__sticky">
+        <div className="collection-sidebar__heading">
+          <h2>Filtrar</h2>
+          <span>{countActiveFilters(props.filters) || '—'}</span>
+        </div>
+        <FilterPanel {...props} />
       </div>
     </aside>
   );

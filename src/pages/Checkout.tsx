@@ -1,317 +1,319 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowLeft, ArrowRight, Check, CreditCard, LockKeyhole, PackageCheck, ShieldCheck, Truck } from 'lucide-react';
 import { useState } from 'react';
+import {
+  useForm,
+  type FieldError,
+  type UseFormRegister,
+} from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, CreditCard, Truck } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
+import { BrandMark } from '@/components/layout/BrandMark';
+import { Seo } from '@/components/Seo';
 import { useCart } from '@/context/CartContext';
+import { FREE_SHIPPING_THRESHOLD, getCartItemKey } from '@/lib/cart';
+import {
+  checkoutSchema,
+  defaultCheckoutValues,
+  informationFields,
+  shippingFields,
+  type CheckoutFormData,
+} from '@/lib/checkout';
+import { formatCurrency } from '@/lib/format';
+
+type CheckoutStep = 'information' | 'shipping' | 'payment';
+
+const steps: Array<{ id: CheckoutStep; label: string }> = [
+  { id: 'information', label: 'Informações' },
+  { id: 'shipping', label: 'Entrega' },
+  { id: 'payment', label: 'Pagamento' },
+];
+
+interface TextFieldProps {
+  name: keyof CheckoutFormData;
+  label: string;
+  register: UseFormRegister<CheckoutFormData>;
+  error?: FieldError;
+  type?: string;
+  autoComplete?: string;
+  inputMode?: 'text' | 'email' | 'tel' | 'numeric';
+  placeholder?: string;
+  optional?: boolean;
+  maxLength?: number;
+}
+
+function TextField({
+  name,
+  label,
+  register,
+  error,
+  type = 'text',
+  autoComplete,
+  inputMode,
+  placeholder,
+  optional = false,
+  maxLength,
+}: TextFieldProps) {
+  const errorId = `${name}-error`;
+  return (
+    <div className={error ? 'form-field has-error' : 'form-field'}>
+      <label htmlFor={name}>{label}{optional && <span>Opcional</span>}</label>
+      <input
+        id={name}
+        type={type}
+        autoComplete={autoComplete}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        {...register(name)}
+      />
+      {error && <p id={errorId} className="form-field__error" role="alert">{error.message}</p>}
+    </div>
+  );
+}
+
+interface Confirmation {
+  orderNumber: string;
+  email: string;
+  total: number;
+  method: string;
+}
 
 export default function Checkout() {
-  const { items, totalPrice } = useCart();
-  const [step, setStep] = useState<'info' | 'shipping' | 'payment'>('info');
+  const { items, totalPrice, clearCart } = useCart();
+  const [step, setStep] = useState<CheckoutStep>('information');
+  const [completedStep, setCompletedStep] = useState(-1);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const {
+    register,
+    handleSubmit,
+    trigger,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<CheckoutFormData>({
+    resolver: zodResolver(checkoutSchema),
+    defaultValues: defaultCheckoutValues,
+    mode: 'onTouched',
+  });
 
-  const shippingCost = totalPrice > 299 ? 0 : 19.9;
+  const shippingMethod = watch('shippingMethod');
+  const standardShipping = totalPrice >= FREE_SHIPPING_THRESHOLD ? 0 : 24.9;
+  const shippingCost = shippingMethod === 'express' ? 39.9 : standardShipping;
   const finalTotal = totalPrice + shippingCost;
+  const currentIndex = steps.findIndex((item) => item.id === step);
+
+  const advance = async () => {
+    const fields = step === 'information' ? informationFields : shippingFields;
+    const valid = await trigger(fields, { shouldFocus: true });
+    if (!valid) return;
+    setCompletedStep(currentIndex);
+    setStep(step === 'information' ? 'shipping' : 'payment');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const goBack = () => {
+    setStep(step === 'payment' ? 'shipping' : 'information');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const placeOrder = (data: CheckoutFormData) => {
+    const orderNumber = `LW-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    setConfirmation({
+      orderNumber,
+      email: data.email,
+      total: finalTotal,
+      method: data.shippingMethod === 'express' ? 'Entrega express · 2–3 dias úteis' : 'Entrega padrão · 5–7 dias úteis',
+    });
+    clearCart();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  if (confirmation) {
+    return (
+      <div className="checkout-shell checkout-shell--confirmation">
+        <Seo title="Pedido demonstrativo confirmado" description="Confirmação do checkout demonstrativo Lume Wear." noIndex />
+        <header className="checkout-header"><BrandMark /><span>Ambiente demonstrativo</span></header>
+        <main className="checkout-confirmation">
+          <span className="checkout-confirmation__icon"><PackageCheck aria-hidden="true" /></span>
+          <p className="eyebrow">Movimento confirmado</p>
+          <h1>Pedido recebido.</h1>
+          <p>Uma confirmação fictícia seria enviada para <strong>{confirmation.email}</strong>. Nenhum pagamento foi processado.</p>
+          <dl>
+            <div><dt>Pedido</dt><dd>{confirmation.orderNumber}</dd></div>
+            <div><dt>Entrega</dt><dd>{confirmation.method}</dd></div>
+            <div><dt>Total demonstrativo</dt><dd>{formatCurrency(confirmation.total)}</dd></div>
+          </dl>
+          <div className="checkout-confirmation__actions">
+            <Link to="/colecao" className="button button--primary">Continuar explorando <ArrowRight aria-hidden="true" /></Link>
+            <Link to="/" className="text-link">Voltar ao início</Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
-      <Layout>
-        <div className="container mx-auto px-6 py-20 text-center">
-          <p className="text-muted-foreground mb-6">Seu carrinho está vazio</p>
-          <Link to="/colecao" className="btn-lume-primary inline-block">
-            Continuar comprando
-          </Link>
-        </div>
-      </Layout>
+      <div className="checkout-shell">
+        <Seo title="Checkout" description="Checkout demonstrativo Lume Wear." noIndex />
+        <header className="checkout-header"><BrandMark /><span>Checkout seguro · demonstração</span></header>
+        <main className="checkout-empty">
+          <p className="eyebrow">Sua seleção</p>
+          <h1>O carrinho está vazio.</h1>
+          <p>Encontre uma peça, selecione cor e tamanho e volte quando estiver pronto.</p>
+          <Link to="/colecao" className="button button--primary">Explorar coleção <ArrowRight aria-hidden="true" /></Link>
+        </main>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="container mx-auto px-6 py-8">
-        <Link
-          to="/colecao"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Continuar comprando
-        </Link>
+    <div className="checkout-shell">
+      <Seo title="Checkout" description="Finalize seu pedido demonstrativo na Lume Wear." noIndex />
+      <a className="skip-link" href="#checkout-main">Pular para o checkout</a>
+      <header className="checkout-header">
+        <BrandMark />
+        <div><LockKeyhole aria-hidden="true" /> Checkout seguro <span>· demonstração</span></div>
+      </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
-          {/* Form Section */}
-          <div className="lg:col-span-3">
-            <h1 className="heading-section mb-8">Checkout</h1>
+      <main id="checkout-main" className="checkout-layout">
+        <section className="checkout-form-column">
+          <Link to="/colecao" className="checkout-back"><ArrowLeft aria-hidden="true" /> Continuar comprando</Link>
+          <p className="eyebrow">Finalizar seleção</p>
+          <h1>Checkout</h1>
 
-            {/* Steps */}
-            <div className="flex items-center gap-4 mb-8">
-              {['Informações', 'Entrega', 'Pagamento'].map((label, index) => {
-                const stepKey = ['info', 'shipping', 'payment'][index] as typeof step;
-                const isActive = step === stepKey;
-                const isPast =
-                  (step === 'shipping' && index === 0) ||
-                  (step === 'payment' && index <= 1);
-                return (
+          <ol className="checkout-steps" aria-label="Etapas do checkout">
+            {steps.map((item, index) => {
+              const active = item.id === step;
+              const complete = index <= completedStep;
+              return (
+                <li key={item.id} className={active ? 'is-active' : complete ? 'is-complete' : undefined}>
                   <button
-                    key={label}
-                    onClick={() => setStep(stepKey)}
-                    className={`text-sm transition-colors ${
-                      isActive
-                        ? 'text-foreground font-medium'
-                        : isPast
-                        ? 'text-foreground'
-                        : 'text-muted-foreground'
-                    }`}
+                    type="button"
+                    onClick={() => complete && setStep(item.id)}
+                    disabled={!complete && !active}
+                    aria-current={active ? 'step' : undefined}
                   >
-                    {label}
+                    <span>{complete && !active ? <Check aria-hidden="true" /> : `0${index + 1}`}</span>
+                    {item.label}
                   </button>
-                );
-              })}
-            </div>
+                </li>
+              );
+            })}
+          </ol>
 
-            {/* Information Step */}
-            {step === 'info' && (
-              <div className="space-y-6 animate-fade-in">
-                <div>
-                  <label className="text-sm font-medium block mb-2">Email</label>
-                  <input
-                    type="email"
-                    className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                    placeholder="seu@email.com"
-                  />
+          <div className="demo-notice" role="note">
+            <ShieldCheck aria-hidden="true" />
+            <p><strong>Experiência de portfólio.</strong> Use apenas dados fictícios. Nenhuma informação é enviada e nenhuma cobrança será realizada.</p>
+          </div>
+
+          <form onSubmit={handleSubmit(placeOrder)} noValidate>
+            {step === 'information' && (
+              <fieldset className="checkout-step-panel">
+                <legend>Como podemos identificar você?</legend>
+                <p>Usaremos estes dados apenas durante esta demonstração local.</p>
+                <div className="form-grid">
+                  <TextField name="email" label="Email" type="email" autoComplete="email" inputMode="email" placeholder="voce@exemplo.com" register={register} error={errors.email} />
+                  <TextField name="firstName" label="Nome" autoComplete="given-name" register={register} error={errors.firstName} />
+                  <TextField name="lastName" label="Sobrenome" autoComplete="family-name" register={register} error={errors.lastName} />
+                  <TextField name="cpf" label="CPF fictício" inputMode="numeric" placeholder="000.000.000-00" maxLength={14} register={register} error={errors.cpf} />
+                  <TextField name="phone" label="Telefone" autoComplete="tel" inputMode="tel" placeholder="(11) 99999-9999" register={register} error={errors.phone} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium block mb-2">Nome</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                      placeholder="Nome"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium block mb-2">Sobrenome</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                      placeholder="Sobrenome"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium block mb-2">CPF</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                    placeholder="000.000.000-00"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium block mb-2">Telefone</label>
-                  <input
-                    type="tel"
-                    className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                    placeholder="(00) 00000-0000"
-                  />
-                </div>
-                <button
-                  onClick={() => setStep('shipping')}
-                  className="btn-lume-primary w-full"
-                >
-                  Continuar para entrega
-                </button>
-              </div>
+                <button type="button" className="button button--primary button--full" onClick={advance}>Continuar para entrega <ArrowRight aria-hidden="true" /></button>
+              </fieldset>
             )}
 
-            {/* Shipping Step */}
             {step === 'shipping' && (
-              <div className="space-y-6 animate-fade-in">
-                <div>
-                  <label className="text-sm font-medium block mb-2">CEP</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                    placeholder="00000-000"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium block mb-2">Endereço</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                    placeholder="Rua, número"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium block mb-2">Complemento</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                      placeholder="Apto, bloco..."
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium block mb-2">Bairro</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                      placeholder="Bairro"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium block mb-2">Cidade</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                      placeholder="Cidade"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium block mb-2">Estado</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                      placeholder="UF"
-                    />
-                  </div>
+              <fieldset className="checkout-step-panel">
+                <legend>Onde este pedido chegaria?</legend>
+                <p>Preencha um endereço fictício para testar a validação e as opções de frete.</p>
+                <div className="form-grid">
+                  <TextField name="postalCode" label="CEP" autoComplete="postal-code" inputMode="numeric" placeholder="00000-000" maxLength={9} register={register} error={errors.postalCode} />
+                  <TextField name="street" label="Endereço" autoComplete="address-line1" register={register} error={errors.street} />
+                  <TextField name="number" label="Número" inputMode="numeric" register={register} error={errors.number} />
+                  <TextField name="complement" label="Complemento" autoComplete="address-line2" optional register={register} error={errors.complement} />
+                  <TextField name="neighborhood" label="Bairro" register={register} error={errors.neighborhood} />
+                  <TextField name="city" label="Cidade" autoComplete="address-level2" register={register} error={errors.city} />
+                  <TextField name="state" label="Estado" autoComplete="address-level1" placeholder="SP" maxLength={2} register={register} error={errors.state} />
                 </div>
 
-                {/* Shipping Options */}
-                <div className="border-t border-border pt-6">
-                  <h3 className="text-sm font-medium mb-4">Método de entrega</h3>
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-4 p-4 border border-foreground cursor-pointer">
-                      <input type="radio" name="shipping" defaultChecked className="w-4 h-4" />
-                      <Truck className="w-5 h-5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Entrega padrão</p>
-                        <p className="text-xs text-muted-foreground">5-7 dias úteis</p>
-                      </div>
-                      <span className="text-sm font-medium">
-                        {shippingCost === 0 ? 'Grátis' : `R$ ${shippingCost.toFixed(2).replace('.', ',')}`}
-                      </span>
-                    </label>
-                  </div>
+                <div className="shipping-options">
+                  <h2>Método de entrega</h2>
+                  <label className={shippingMethod === 'standard' ? 'is-active' : undefined}>
+                    <input type="radio" value="standard" {...register('shippingMethod')} />
+                    <span><Truck aria-hidden="true" /><span><strong>Entrega padrão</strong><small>5–7 dias úteis</small></span></span>
+                    <strong>{standardShipping === 0 ? 'Grátis' : formatCurrency(standardShipping)}</strong>
+                  </label>
+                  <label className={shippingMethod === 'express' ? 'is-active' : undefined}>
+                    <input type="radio" value="express" {...register('shippingMethod')} />
+                    <span><PackageCheck aria-hidden="true" /><span><strong>Entrega express</strong><small>2–3 dias úteis</small></span></span>
+                    <strong>{formatCurrency(39.9)}</strong>
+                  </label>
                 </div>
 
-                <button
-                  onClick={() => setStep('payment')}
-                  className="btn-lume-primary w-full"
-                >
-                  Continuar para pagamento
-                </button>
-              </div>
+                <div className="checkout-step-panel__actions">
+                  <button type="button" className="button button--secondary" onClick={goBack}><ArrowLeft aria-hidden="true" /> Voltar</button>
+                  <button type="button" className="button button--primary" onClick={advance}>Continuar para pagamento <ArrowRight aria-hidden="true" /></button>
+                </div>
+              </fieldset>
             )}
 
-            {/* Payment Step */}
             {step === 'payment' && (
-              <div className="space-y-6 animate-fade-in">
-                <div className="flex items-center gap-3 p-4 bg-secondary">
-                  <CreditCard className="w-5 h-5" />
-                  <span className="text-sm font-medium">Cartão de crédito</span>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium block mb-2">Número do cartão</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                    placeholder="0000 0000 0000 0000"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium block mb-2">Nome no cartão</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                    placeholder="Nome como está no cartão"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium block mb-2">Validade</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                      placeholder="MM/AA"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium block mb-2">CVV</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 border border-border bg-background text-sm focus:outline-none focus:border-foreground transition-colors"
-                      placeholder="000"
-                    />
+              <fieldset className="checkout-step-panel">
+                <legend>Pagamento demonstrativo</legend>
+                <p>Os campos abaixo validam formato, mas os dados nunca deixam seu navegador.</p>
+                <div className="payment-card-label"><CreditCard aria-hidden="true" /><span><strong>Cartão fictício</strong><small>Ambiente sem transação financeira</small></span></div>
+                <div className="form-grid">
+                  <TextField name="cardNumber" label="Número do cartão fictício" inputMode="numeric" autoComplete="off" placeholder="4242 4242 4242 4242" maxLength={19} register={register} error={errors.cardNumber} />
+                  <TextField name="cardName" label="Nome no cartão" autoComplete="off" register={register} error={errors.cardName} />
+                  <TextField name="expiry" label="Validade" inputMode="numeric" autoComplete="off" placeholder="12/30" maxLength={5} register={register} error={errors.expiry} />
+                  <TextField name="cvv" label="CVV fictício" inputMode="numeric" autoComplete="off" placeholder="123" maxLength={4} register={register} error={errors.cvv} />
+                  <div className={errors.installments ? 'form-field has-error' : 'form-field'}>
+                    <label htmlFor="installments">Parcelamento</label>
+                    <select id="installments" {...register('installments')} aria-invalid={Boolean(errors.installments)}>
+                      <option value="1">1x de {formatCurrency(finalTotal)}</option>
+                      <option value="3">3x de {formatCurrency(finalTotal / 3)} sem juros</option>
+                      <option value="6">6x de {formatCurrency(finalTotal / 6)} sem juros</option>
+                    </select>
                   </div>
                 </div>
-
-                <button className="btn-lume-primary w-full">
-                  Finalizar pedido • R$ {finalTotal.toFixed(2).replace('.', ',')}
-                </button>
-              </div>
+                <div className="checkout-step-panel__actions">
+                  <button type="button" className="button button--secondary" onClick={goBack}><ArrowLeft aria-hidden="true" /> Voltar</button>
+                  <button type="submit" className="button button--primary" disabled={isSubmitting}>
+                    {isSubmitting ? 'Finalizando…' : `Finalizar demonstração · ${formatCurrency(finalTotal)}`}
+                    {!isSubmitting && <ArrowRight aria-hidden="true" />}
+                  </button>
+                </div>
+              </fieldset>
             )}
-          </div>
+          </form>
+        </section>
 
-          {/* Order Summary */}
-          <div className="lg:col-span-2">
-            <div className="bg-lume-gray-100 p-6 sticky top-28">
-              <h2 className="text-lg font-medium mb-6">Resumo do pedido</h2>
-
-              <div className="space-y-4 mb-6">
-                {items.map((item) => (
-                  <div
-                    key={`${item.product.id}-${item.selectedColor.hex}-${item.selectedSize}`}
-                    className="flex gap-4"
-                  >
-                    <div className="w-16 h-16 bg-background relative">
-                      <img
-                        src={item.product.images[0]}
-                        alt={item.product.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <span className="absolute -top-2 -right-2 w-5 h-5 bg-foreground text-background text-[10px] font-medium flex items-center justify-center">
-                        {item.quantity}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{item.product.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.selectedColor.name} / {item.selectedSize}
-                      </p>
-                    </div>
-                    <p className="text-sm font-medium">
-                      R$ {(item.product.price * item.quantity).toFixed(2).replace('.', ',')}
-                    </p>
+        <aside className="order-summary" aria-label="Resumo do pedido">
+          <div className="order-summary__sticky">
+            <div className="order-summary__heading"><h2>Sua seleção</h2><span>{items.reduce((total, item) => total + item.quantity, 0)} itens</span></div>
+            <div className="order-summary__items">
+              {items.map((item) => (
+                <article key={getCartItemKey(item)} className="order-summary-item">
+                  <div className="order-summary-item__image">
+                    <img src={item.product.images[0].src} alt="" width="1122" height="1402" />
+                    <span>{item.quantity}</span>
                   </div>
-                ))}
-              </div>
-
-              <div className="border-t border-border pt-4 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>R$ {totalPrice.toFixed(2).replace('.', ',')}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Frete</span>
-                  <span>
-                    {shippingCost === 0 ? 'Grátis' : `R$ ${shippingCost.toFixed(2).replace('.', ',')}`}
-                  </span>
-                </div>
-                {totalPrice < 299 && (
-                  <p className="text-xs text-muted-foreground">
-                    Frete grátis para compras acima de R$ 299
-                  </p>
-                )}
-                <div className="flex justify-between text-lg font-medium pt-3 border-t border-border">
-                  <span>Total</span>
-                  <span>R$ {finalTotal.toFixed(2).replace('.', ',')}</span>
-                </div>
-              </div>
+                  <div><h3>{item.product.name}</h3><p>{item.selectedColor.name} · {item.selectedSize}</p></div>
+                  <strong>{formatCurrency(item.product.price * item.quantity)}</strong>
+                </article>
+              ))}
             </div>
+            <dl className="order-summary__totals">
+              <div><dt>Subtotal</dt><dd>{formatCurrency(totalPrice)}</dd></div>
+              <div><dt>Entrega</dt><dd>{shippingCost === 0 ? 'Grátis' : formatCurrency(shippingCost)}</dd></div>
+              <div><dt>Total</dt><dd><span>BRL</span>{formatCurrency(finalTotal)}</dd></div>
+            </dl>
+            <p className="order-summary__security"><LockKeyhole aria-hidden="true" /> Checkout demonstrativo. Nenhum dado ou pagamento será processado.</p>
           </div>
-        </div>
-      </div>
-    </Layout>
+        </aside>
+      </main>
+    </div>
   );
 }

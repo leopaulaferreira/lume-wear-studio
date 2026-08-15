@@ -1,217 +1,210 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Star, ChevronLeft, Minus, Plus, Check } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, Minus, Package, Plus, RotateCcw, Star, Truck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { ProductCard } from '@/components/product/ProductCard';
 import { ProductGallery } from '@/components/product/ProductGallery';
-import { products } from '@/data/products';
+import { SizeGuideDialog } from '@/components/product/SizeGuideDialog';
+import { Seo } from '@/components/Seo';
+import { getProductById, getRelatedProducts } from '@/data/products';
 import { useCart } from '@/context/CartContext';
-import { ProductColor } from '@/types/product';
+import { formatCurrency, formatInstallments } from '@/lib/format';
+import type { ProductColor } from '@/types/product';
 
 export default function ProductDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id = '' } = useParams<{ id: string }>();
+  const product = getProductById(id);
   const { addItem } = useCart();
-  
-  const product = products.find((p) => p.id === id);
-
-  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(
-    product?.colors[0] || null
-  );
+  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(product?.colors[0] ?? null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [added, setAdded] = useState(false);
+  const [selectionError, setSelectionError] = useState(false);
+
+  useEffect(() => {
+    setSelectedColor(product?.colors[0] ?? null);
+    setSelectedSize(null);
+    setQuantity(1);
+    setSelectionError(false);
+  }, [product]);
+
+  const related = useMemo(() => (product ? getRelatedProducts(product) : []), [product]);
 
   if (!product) {
     return (
       <Layout>
-        <div className="container mx-auto px-6 py-20 text-center">
-          <p className="text-muted-foreground">Produto não encontrado</p>
-          <Link to="/colecao" className="mt-4 inline-block underline">
-            Voltar à coleção
-          </Link>
-        </div>
+        <Seo title="Produto não encontrado" description="A peça procurada não está disponível." noIndex />
+        <section className="not-found not-found--product page-shell">
+          <p className="eyebrow">Erro 404</p>
+          <h1>Esta peça saiu do campo.</h1>
+          <p>Ela pode ter mudado de nome ou não fazer mais parte da coleção.</p>
+          <Link to="/colecao" className="button button--primary">Explorar coleção <ArrowRight aria-hidden="true" /></Link>
+        </section>
       </Layout>
     );
   }
 
+  const selectedStock = selectedSize ? product.stockBySize[selectedSize] ?? 0 : 0;
+
+  const selectSize = (size: string) => {
+    setSelectedSize(size);
+    setQuantity(1);
+    setSelectionError(false);
+  };
+
   const handleAddToCart = () => {
-    if (!selectedColor || !selectedSize) return;
+    if (!selectedColor || !selectedSize) {
+      setSelectionError(true);
+      return;
+    }
     addItem(product, selectedColor, selectedSize, quantity);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
   };
 
   return (
     <Layout>
-      <div className="container mx-auto px-6 py-8">
-        {/* Breadcrumb */}
-        <Link
-          to="/colecao"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Voltar à coleção
-        </Link>
+      <Seo
+        title={product.name}
+        description={`${product.subtitle}. ${product.description}`}
+        image={product.images[0].src}
+        type="product"
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
-          {/* Gallery */}
-          <ProductGallery images={product.images} productName={product.name} />
+      <div className="product-breadcrumb page-shell">
+        <Link to="/colecao"><ChevronLeft aria-hidden="true" /> Coleção</Link>
+        <span aria-hidden="true">/</span>
+        <span>{product.category}</span>
+        <span aria-hidden="true">/</span>
+        <span>{product.name}</span>
+      </div>
 
-          {/* Product Info */}
-          <div className="lg:py-4">
-            <div className="lg:sticky lg:top-28 space-y-6">
-              {/* Title & Rating */}
-              <div>
-                <h1 className="text-2xl font-medium tracking-tight">{product.name}</h1>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-foreground text-foreground" />
-                    <span className="text-sm font-medium">{product.rating}</span>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    ({product.reviewCount} avaliações)
-                  </span>
-                </div>
-              </div>
+      <section className="product-page page-shell" aria-labelledby="product-title">
+        <ProductGallery images={product.images} productName={product.name} />
 
-              {/* Price */}
-              <div className="flex items-baseline gap-3">
-                <span className="text-2xl font-medium">
-                  R$ {product.price.toFixed(2).replace('.', ',')}
-                </span>
-                {product.originalPrice && (
-                  <span className="text-lg text-muted-foreground line-through">
-                    R$ {product.originalPrice.toFixed(2).replace('.', ',')}
-                  </span>
-                )}
-              </div>
+        <div className="product-buybox">
+          <div className="product-buybox__sticky">
+            <p className="eyebrow">{product.subtitle}</p>
+            <div className="product-buybox__title">
+              <h1 id="product-title">{product.name}</h1>
+              {product.badge && <span>{product.badge === 'best-seller' ? 'Mais vendido' : product.badge === 'novo' ? 'Novo' : 'Essencial'}</span>}
+            </div>
 
-              {/* Colors */}
-              <div>
-                <p className="text-sm font-medium mb-3">
-                  Cor: <span className="font-normal text-muted-foreground">{selectedColor?.name}</span>
-                </p>
-                <div className="flex gap-3">
-                  {product.colors.map((color) => (
+            <div className="product-buybox__rating">
+              <span><Star aria-hidden="true" /> {product.rating}</span>
+              <a href="#avaliacoes">{product.reviewCount} avaliações verificadas</a>
+            </div>
+
+            <div className="product-buybox__price">
+              <p>{formatCurrency(product.price)}</p>
+              {product.originalPrice && <del>{formatCurrency(product.originalPrice)}</del>}
+              <small>{formatInstallments(product.price)}</small>
+            </div>
+
+            <fieldset className="product-option">
+              <legend>Cor <span>{selectedColor?.name}</span></legend>
+              <div className="product-colors">
+                {product.colors.map((color) => {
+                  const active = selectedColor?.id === color.id;
+                  return (
                     <button
-                      key={color.hex}
+                      key={color.id}
+                      type="button"
+                      className={active ? 'is-active' : undefined}
                       onClick={() => setSelectedColor(color)}
-                      className={`w-10 h-10 rounded-full border-2 transition-all duration-200 ${
-                        selectedColor?.hex === color.hex
-                          ? 'border-foreground scale-110'
-                          : 'border-lume-gray-200 hover:border-lume-gray-400'
-                      }`}
-                      style={{ backgroundColor: color.hex }}
-                      title={color.name}
-                    />
-                  ))}
-                </div>
+                      aria-pressed={active}
+                      aria-label={color.name}
+                    >
+                      <span style={{ backgroundColor: color.hex }} aria-hidden="true" />
+                    </button>
+                  );
+                })}
               </div>
+            </fieldset>
 
-              {/* Sizes */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium">Tamanho</p>
-                  <button className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors">
-                    Guia de medidas
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
+            <fieldset className="product-option">
+              <div className="product-option__line">
+                <legend>Tamanho {selectedSize && <span>{selectedSize}</span>}</legend>
+                <SizeGuideDialog fit={product.fit} />
+              </div>
+              <div className="product-sizes">
+                {product.sizes.map((size) => {
+                  const stock = product.stockBySize[size] ?? 0;
+                  const active = selectedSize === size;
+                  return (
                     <button
                       key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`min-w-[48px] h-12 px-4 flex items-center justify-center text-sm border transition-all duration-200 ${
-                        selectedSize === size
-                          ? 'border-foreground bg-foreground text-background'
-                          : 'border-border hover:border-foreground'
-                      }`}
+                      type="button"
+                      disabled={stock === 0}
+                      className={active ? 'is-active' : undefined}
+                      onClick={() => selectSize(size)}
+                      aria-pressed={active}
+                      aria-label={`${size}${stock === 0 ? ', indisponível' : ''}`}
                     >
                       {size}
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
+              <p className={selectionError ? 'product-option__error is-visible' : 'product-option__error'} role="alert">
+                Selecione um tamanho para adicionar a peça.
+              </p>
+              {selectedSize && selectedStock <= 5 && <p className="product-option__stock">Últimas {selectedStock} unidades no tamanho {selectedSize}.</p>}
+            </fieldset>
 
-              {/* Quantity */}
-              <div>
-                <p className="text-sm font-medium mb-3">Quantidade</p>
-                <div className="inline-flex items-center border border-border">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-12 h-12 flex items-center justify-center hover:bg-secondary transition-colors"
-                    aria-label="Diminuir quantidade"
-                  >
-                    <Minus className="w-4 h-4" />
-                  </button>
-                  <span className="w-12 text-center text-sm font-medium">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-12 h-12 flex items-center justify-center hover:bg-secondary transition-colors"
-                    aria-label="Aumentar quantidade"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
+            <div className="product-purchase">
+              <div className="quantity-control quantity-control--large" aria-label="Quantidade">
+                <button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))} disabled={quantity === 1} aria-label="Diminuir quantidade"><Minus aria-hidden="true" /></button>
+                <span aria-live="polite">{quantity}</span>
+                <button type="button" onClick={() => setQuantity((current) => Math.min(selectedStock || 10, current + 1))} disabled={Boolean(selectedSize) && quantity >= selectedStock} aria-label="Aumentar quantidade"><Plus aria-hidden="true" /></button>
               </div>
-
-              {/* Add to Cart */}
-              <button
-                onClick={handleAddToCart}
-                disabled={!selectedSize}
-                className={`w-full py-4 text-sm font-medium tracking-wide uppercase transition-all duration-300 flex items-center justify-center gap-2 ${
-                  added
-                    ? 'bg-green-600 text-white'
-                    : selectedSize
-                    ? 'btn-lume-primary'
-                    : 'bg-lume-gray-200 text-muted-foreground cursor-not-allowed'
-                }`}
-              >
-                {added ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Adicionado ao carrinho
-                  </>
-                ) : (
-                  'Adicionar ao carrinho'
-                )}
+              <button type="button" className="button button--primary product-purchase__add" onClick={handleAddToCart}>
+                Adicionar à seleção <ArrowRight aria-hidden="true" />
               </button>
+            </div>
 
-              {!selectedSize && (
-                <p className="text-xs text-muted-foreground text-center">
-                  Selecione um tamanho para continuar
-                </p>
-              )}
+            <ul className="product-service-list">
+              <li><Truck aria-hidden="true" /><span><strong>Frete grátis</strong> acima de R$ 499</span></li>
+              <li><RotateCcw aria-hidden="true" /><span><strong>Troca simples</strong> em até 30 dias</span></li>
+              <li><Package aria-hidden="true" /><span><strong>Envio em 1–2 dias úteis</strong> após confirmação</span></li>
+            </ul>
 
-              {/* Description */}
-              <div className="pt-6 border-t border-border space-y-6">
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Descrição</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {product.description}
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Benefícios</h3>
-                  <ul className="space-y-1.5">
-                    {product.benefits.map((benefit, index) => (
-                      <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-3.5 h-3.5 text-foreground flex-shrink-0" />
-                        {benefit}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Composição</h3>
-                  <p className="text-sm text-muted-foreground">{product.composition}</p>
-                </div>
-              </div>
+            <div className="product-details">
+              <details open>
+                <summary>Sobre a peça <Plus aria-hidden="true" /></summary>
+                <p>{product.description}</p>
+                <ul>{product.benefits.map((benefit) => <li key={benefit}><Check aria-hidden="true" />{benefit}</li>)}</ul>
+              </details>
+              <details>
+                <summary>Composição & cuidado <Plus aria-hidden="true" /></summary>
+                <p>{product.composition}</p><p>{product.care}</p>
+              </details>
+              <details>
+                <summary>Caimento <Plus aria-hidden="true" /></summary>
+                <p>{product.fit}</p>
+              </details>
+              <details>
+                <summary>Entrega & devolução <Plus aria-hidden="true" /></summary>
+                <p>Calcule opções e prazos no checkout. A troca demonstrativa pode ser solicitada em até 30 dias.</p>
+              </details>
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      <section id="avaliacoes" className="product-proof page-shell">
+        <div>
+          <p className="eyebrow">Teste de movimento</p>
+          <h2>Usada no ritmo real.</h2>
+        </div>
+        <div className="product-proof__score"><strong>{product.rating}</strong><span><span aria-label={`${product.rating} de 5 estrelas`}>★★★★★</span>{product.reviewCount} avaliações verificadas</span></div>
+        <blockquote>“O caimento mantém a estrutura durante o treino e continua certo no resto do dia.”<cite>— Comunidade Lume / avaliação demonstrativa</cite></blockquote>
+      </section>
+
+      <section className="related-products section-space page-shell">
+        <header className="section-heading">
+          <div><p className="eyebrow">Complete o sistema</p><h2>Também em movimento</h2></div>
+          <Link to="/colecao" className="text-link">Ver coleção <ArrowRight aria-hidden="true" /></Link>
+        </header>
+        <div className="product-grid">{related.slice(0, 4).map((item) => <ProductCard key={item.id} product={item} />)}</div>
+      </section>
     </Layout>
   );
 }

@@ -1,160 +1,161 @@
-import { X, Minus, Plus, Trash2 } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
+import * as Dialog from '@radix-ui/react-dialog';
+import { Check, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useCart } from '@/context/CartContext';
+import { FREE_SHIPPING_THRESHOLD, getCartItemKey } from '@/lib/cart';
+import { formatCurrency } from '@/lib/format';
 
 export function Cart() {
-  const { items, isOpen, closeCart, updateQuantity, removeItem, totalPrice } = useCart();
+  const {
+    items,
+    isOpen,
+    announcement,
+    setCartOpen,
+    updateQuantity,
+    removeItem,
+    totalItems,
+    totalPrice,
+  } = useCart();
 
-  if (!isOpen) return null;
+  const remainingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - totalPrice);
+  const shippingProgress = Math.min(100, (totalPrice / FREE_SHIPPING_THRESHOLD) * 100);
 
   return (
-    <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-foreground/20 z-50 animate-fade-in"
-        onClick={closeCart}
-      />
-
-      {/* Cart Panel */}
-      <div className="fixed top-0 right-0 h-full w-full max-w-md bg-background z-50 shadow-2xl animate-slide-in-right">
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-border">
-            <h2 className="text-lg font-medium tracking-tight">Carrinho</h2>
-            <button
-              onClick={closeCart}
-              className="p-2 hover:bg-secondary transition-colors duration-200"
-              aria-label="Fechar carrinho"
-            >
-              <X className="w-5 h-5" strokeWidth={1.5} />
-            </button>
-          </div>
-
-          {/* Items */}
-          <div className="flex-1 overflow-y-auto">
-            {items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-                <p className="text-muted-foreground mb-6">Seu carrinho está vazio</p>
-                <button
-                  onClick={closeCart}
-                  className="btn-lume-outline"
-                >
-                  Continuar comprando
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {items.map((item) => (
-                  <div
-                    key={`${item.product.id}-${item.selectedColor.hex}-${item.selectedSize}`}
-                    className="flex gap-4 p-6"
-                  >
-                    {/* Image */}
-                    <div className="w-24 h-24 bg-secondary flex-shrink-0">
-                      <img
-                        src={item.product.images[0]}
-                        alt={item.product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-
-                    {/* Details */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium truncate">{item.product.name}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div
-                          className="w-3 h-3 border border-border"
-                          style={{ backgroundColor: item.selectedColor.hex }}
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          {item.selectedColor.name} • {item.selectedSize}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium mt-2">
-                        R$ {item.product.price.toFixed(2).replace('.', ',')}
-                      </p>
-
-                      {/* Quantity */}
-                      <div className="flex items-center gap-3 mt-3">
-                        <button
-                          onClick={() =>
-                            updateQuantity(
-                              item.product.id,
-                              item.selectedColor.hex,
-                              item.selectedSize,
-                              item.quantity - 1
-                            )
-                          }
-                          className="w-7 h-7 flex items-center justify-center border border-border hover:bg-secondary transition-colors"
-                          aria-label="Diminuir quantidade"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="text-sm w-6 text-center">{item.quantity}</span>
-                        <button
-                          onClick={() =>
-                            updateQuantity(
-                              item.product.id,
-                              item.selectedColor.hex,
-                              item.selectedSize,
-                              item.quantity + 1
-                            )
-                          }
-                          className="w-7 h-7 flex items-center justify-center border border-border hover:bg-secondary transition-colors"
-                          aria-label="Aumentar quantidade"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            removeItem(
-                              item.product.id,
-                              item.selectedColor.hex,
-                              item.selectedSize
-                            )
-                          }
-                          className="ml-auto p-1 text-muted-foreground hover:text-foreground transition-colors"
-                          aria-label="Remover item"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          {items.length > 0 && (
-            <div className="border-t border-border p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Subtotal</span>
-                <span className="text-lg font-medium">
-                  R$ {totalPrice.toFixed(2).replace('.', ',')}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Frete calculado no checkout
-              </p>
-              <Link
-                to="/checkout"
-                onClick={closeCart}
-                className="btn-lume-primary w-full flex items-center justify-center"
-              >
-                Finalizar compra
-              </Link>
-              <button
-                onClick={closeCart}
-                className="btn-lume-outline w-full"
-              >
-                Continuar comprando
-              </button>
+    <Dialog.Root open={isOpen} onOpenChange={setCartOpen}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dialog-overlay" />
+        <Dialog.Content className="cart-drawer">
+          <div className="cart-drawer__header">
+            <div>
+              <Dialog.Title>Carrinho</Dialog.Title>
+              <Dialog.Description>
+                {totalItems === 0
+                  ? 'Sua seleção está vazia.'
+                  : `${totalItems} ${totalItems === 1 ? 'item selecionado' : 'itens selecionados'}`}
+              </Dialog.Description>
             </div>
+            <Dialog.Close className="icon-button" aria-label="Fechar carrinho">
+              <X aria-hidden="true" />
+            </Dialog.Close>
+          </div>
+
+          <p className="sr-only" aria-live="polite">
+            {announcement}
+          </p>
+
+          {items.length === 0 ? (
+            <div className="cart-empty">
+              <ShoppingBag aria-hidden="true" />
+              <h2>Espaço para o próximo movimento.</h2>
+              <p>Explore peças desenhadas para treino, trajeto e tudo entre eles.</p>
+              <Dialog.Close asChild>
+                <Link to="/colecao" className="button button--primary">
+                  Explorar coleção
+                </Link>
+              </Dialog.Close>
+            </div>
+          ) : (
+            <>
+              <div className="cart-shipping-progress">
+                <div className="cart-shipping-progress__copy">
+                  <Check aria-hidden="true" />
+                  <p>
+                    {remainingForFreeShipping > 0
+                      ? <>Faltam <strong>{formatCurrency(remainingForFreeShipping)}</strong> para frete grátis.</>
+                      : <strong>Você conquistou frete grátis.</strong>}
+                  </p>
+                </div>
+                <div
+                  className="cart-shipping-progress__track"
+                  role="progressbar"
+                  aria-label="Progresso para frete grátis"
+                  aria-valuemin={0}
+                  aria-valuemax={FREE_SHIPPING_THRESHOLD}
+                  aria-valuenow={Math.min(totalPrice, FREE_SHIPPING_THRESHOLD)}
+                >
+                  <span style={{ width: `${shippingProgress}%` }} />
+                </div>
+              </div>
+
+              <div className="cart-drawer__items">
+                {items.map((item) => {
+                  const stock = item.product.stockBySize[item.selectedSize] ?? 0;
+                  const key = getCartItemKey(item);
+
+                  return (
+                    <article key={key} className="cart-item">
+                      <Dialog.Close asChild>
+                        <Link to={`/produto/${item.product.id}`} className="cart-item__image">
+                          <img
+                            src={item.product.images[0].src}
+                            alt={item.product.images[0].alt}
+                            width="1122"
+                            height="1402"
+                          />
+                        </Link>
+                      </Dialog.Close>
+
+                      <div className="cart-item__details">
+                        <div className="cart-item__topline">
+                          <div>
+                            <h3>{item.product.name}</h3>
+                            <p>{item.selectedColor.name} · {item.selectedSize}</p>
+                          </div>
+                          <button
+                            className="cart-item__remove"
+                            onClick={() => removeItem(item.product.id, item.selectedColor.id, item.selectedSize)}
+                            aria-label={`Remover ${item.product.name}`}
+                          >
+                            <Trash2 aria-hidden="true" />
+                            <span>Remover</span>
+                          </button>
+                        </div>
+
+                        <div className="cart-item__bottomline">
+                          <div className="quantity-control" aria-label={`Quantidade de ${item.product.name}`}>
+                            <button
+                              onClick={() => updateQuantity(item.product.id, item.selectedColor.id, item.selectedSize, item.quantity - 1)}
+                              aria-label="Diminuir quantidade"
+                            >
+                              <Minus aria-hidden="true" />
+                            </button>
+                            <span aria-live="polite">{item.quantity}</span>
+                            <button
+                              onClick={() => updateQuantity(item.product.id, item.selectedColor.id, item.selectedSize, item.quantity + 1)}
+                              disabled={item.quantity >= stock}
+                              aria-label="Aumentar quantidade"
+                            >
+                              <Plus aria-hidden="true" />
+                            </button>
+                          </div>
+                          <p className="cart-item__price">{formatCurrency(item.product.price * item.quantity)}</p>
+                        </div>
+                        {stock <= 5 && <p className="cart-item__stock">Apenas {stock} em estoque neste tamanho</p>}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="cart-drawer__footer">
+                <div className="cart-total">
+                  <span>Subtotal</span>
+                  <strong>{formatCurrency(totalPrice)}</strong>
+                </div>
+                <p>Frete e prazo são calculados na próxima etapa.</p>
+                <Dialog.Close asChild>
+                  <Link to="/checkout" className="button button--primary button--full">
+                    Ir para o checkout
+                  </Link>
+                </Dialog.Close>
+                <Dialog.Close className="button button--secondary button--full">
+                  Continuar comprando
+                </Dialog.Close>
+              </div>
+            </>
           )}
-        </div>
-      </div>
-    </>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

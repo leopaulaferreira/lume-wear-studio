@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom";
+import { afterEach, vi } from "vitest";
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
@@ -12,4 +13,14 @@ Object.defineProperty(window, "matchMedia", {
     removeEventListener: () => {},
     dispatchEvent: () => {},
   }),
+});
+
+Object.defineProperty(window, "scrollTo", {
+  writable: true,
+  value: vi.fn(),
+});
+
+afterEach(() => {
+  window.localStorage.clear();
+  document.title = "";
 });
