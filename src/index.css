@@ -1238,10 +1238,10 @@ button {
 
 .collection-hero h1 {
   font-family: var(--font-display);
-  font-size: clamp(3.8rem, 8vw, 8.8rem);
+  font-size: clamp(3.5rem, 7vw, 7.3rem);
   font-weight: 750;
   letter-spacing: -0.08em;
-  line-height: 0.82;
+  line-height: 0.86;
   text-transform: uppercase;
 }
 
@@ -3219,6 +3219,13 @@ button {
   border-top: 1px solid rgba(255, 255, 255, 0.2);
   color: rgba(255, 255, 255, 0.45);
   font-size: 0.6rem;
+}
+
+.site-footer__credit {
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 0.52rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .not-found {

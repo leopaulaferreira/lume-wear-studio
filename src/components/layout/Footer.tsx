@@ -36,6 +36,7 @@ export function Footer() {
         <div className="site-footer__bottom">
           <p>© {new Date().getFullYear()} Lume Wear.</p>
           <p>E-commerce demonstrativo criado para portfólio. Nenhuma compra ou cobrança é realizada.</p>
+          <p className="site-footer__credit">Software Developer Leonardo de Paula</p>
         </div>
       </div>
     </footer>
