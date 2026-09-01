@@ -41,11 +41,16 @@ describe('fluxo de produto', () => {
     fireEvent.click(addButton);
     expect(screen.getByRole('alert')).toHaveTextContent('Selecione um tamanho');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Oliva mineral' }));
     fireEvent.click(screen.getByRole('button', { name: 'M' }));
     fireEvent.click(addButton);
 
     const cart = await screen.findByRole('dialog', { name: 'Carrinho' });
     expect(within(cart).getByRole('heading', { name: 'Jaqueta Shield' })).toBeInTheDocument();
-    expect(within(cart).getByText(/Preto tinta · M/)).toBeInTheDocument();
+    expect(within(cart).getByText(/Oliva mineral · M/)).toBeInTheDocument();
+    expect(within(cart).getByRole('img', { name: /Jaqueta Shield oliva mineral/ })).toHaveAttribute(
+      'src',
+      products[6].variants[1].images[0].src,
+    );
   });
 });

@@ -84,7 +84,7 @@ export default function Index() {
         </header>
         <div className="product-grid product-grid--editorial">
           {newArrivals.map((product, index) => (
-            <ProductCard key={product.id} product={product} priority={index < 2} className={index === 0 ? 'product-card--lead' : undefined} />
+            <ProductCard key={product.id} product={product} priority={index < 2} />
           ))}
         </div>
       </section>
