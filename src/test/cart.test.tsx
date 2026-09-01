@@ -7,7 +7,7 @@ import { CART_STORAGE_KEY } from '@/lib/cart';
 function CartProbe() {
   const { items, totalItems, totalPrice, addItem, updateQuantity, removeItem } = useCart();
   const product = products[0];
-  const color = product.colors[0];
+  const color = product.variants[0].color;
 
   return (
     <div>

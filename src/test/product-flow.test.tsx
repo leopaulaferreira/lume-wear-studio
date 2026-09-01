@@ -2,9 +2,32 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { CartProvider } from '@/context/CartContext';
+import { products } from '@/data/products';
 import ProductDetail from '@/pages/ProductDetail';
 
 describe('fluxo de produto', () => {
+  it('troca e reinicia a galeria ao selecionar outra cor', () => {
+    render(
+      <MemoryRouter initialEntries={['/produto/7']}>
+        <CartProvider>
+          <Routes><Route path="/produto/:id" element={<ProductDetail />} /></Routes>
+        </CartProvider>
+      </MemoryRouter>,
+    );
+
+    const mainImage = screen.getByTestId('product-gallery-main-image');
+    const initialSrc = mainImage.getAttribute('src');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Próxima imagem' })[0]);
+    expect(screen.getByTestId('product-gallery-main-image').getAttribute('src')).not.toBe(initialSrc);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Oliva mineral' }));
+    expect(screen.getByTestId('product-gallery-main-image').getAttribute('src')).toBe(
+      products[6].variants[1].images[0].src,
+    );
+    expect(screen.getByRole('button', { name: 'Oliva mineral' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('exige tamanho e adiciona a variante escolhida ao carrinho', async () => {
     render(
       <MemoryRouter initialEntries={['/produto/7']}>

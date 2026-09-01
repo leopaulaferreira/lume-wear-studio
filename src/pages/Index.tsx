@@ -6,7 +6,7 @@ import heroImage from '@/assets/campaign/hero-motion.webp';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/product/ProductCard';
 import { Seo } from '@/components/Seo';
-import { products } from '@/data/products';
+import { getPrimaryProductImage, products } from '@/data/products';
 
 const categories = [
   {
@@ -14,21 +14,21 @@ const categories = [
     title: 'RUN',
     copy: 'Leveza, ventilação e ritmo contínuo.',
     to: '/colecao?categoria=regatas,shorts,leggings',
-    image: products[3].images[0],
+    image: getPrimaryProductImage(products[3]),
   },
   {
     index: '02',
     title: 'TRAIN',
     copy: 'Suporte preciso para força e amplitude.',
     to: '/colecao?categoria=tops,camisetas,leggings',
-    image: products[4].images[0],
+    image: getPrimaryProductImage(products[4]),
   },
   {
     index: '03',
     title: 'TRANSIT',
     copy: 'Camadas técnicas para o movimento urbano.',
     to: '/colecao?categoria=jaquetas,calcas,moletons',
-    image: products[6].images[0],
+    image: getPrimaryProductImage(products[6]),
   },
 ];
 

@@ -47,7 +47,9 @@ const hydrateCart = (): CartItem[] => {
 
     return parsed.flatMap((storedItem) => {
       const product = getProductById(storedItem.productId);
-      const selectedColor = product?.colors.find((color) => color.id === storedItem.colorId);
+      const selectedColor = product?.variants.find(
+        (variant) => variant.color.id === storedItem.colorId,
+      )?.color;
       const stock = product?.stockBySize[storedItem.size] ?? 0;
 
       if (!product || !selectedColor || !product.sizes.includes(storedItem.size) || stock < 1) {

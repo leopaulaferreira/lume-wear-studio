@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { Check, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
+import { getPrimaryProductImage } from '@/data/products';
 import { FREE_SHIPPING_THRESHOLD, getCartItemKey } from '@/lib/cart';
 import { formatCurrency } from '@/lib/format';
 
@@ -81,14 +82,15 @@ export function Cart() {
                 {items.map((item) => {
                   const stock = item.product.stockBySize[item.selectedSize] ?? 0;
                   const key = getCartItemKey(item);
+                  const image = getPrimaryProductImage(item.product, item.selectedColor.id);
 
                   return (
                     <article key={key} className="cart-item">
                       <Dialog.Close asChild>
-                        <Link to={`/produto/${item.product.id}`} className="cart-item__image">
+                        <Link to={`/produto/${item.product.id}?cor=${item.selectedColor.id}`} className="cart-item__image">
                           <img
-                            src={item.product.images[0].src}
-                            alt={item.product.images[0].alt}
+                            src={image.src}
+                            alt={image.alt}
                             width="1122"
                             height="1402"
                           />

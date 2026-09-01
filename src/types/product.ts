@@ -26,6 +26,13 @@ export interface ProductImage {
   position?: string;
 }
 
+export interface ProductVariant {
+  color: ProductColor;
+  images: ProductImage[];
+  /** Indicates that this gallery reuses the best available product photography. */
+  usesImageFallback?: boolean;
+}
+
 export interface Product {
   id: string;
   sku: string;
@@ -38,10 +45,9 @@ export interface Product {
   category: ProductCategory;
   gender: ProductGender;
   activities: ProductActivity[];
-  colors: ProductColor[];
+  variants: ProductVariant[];
   sizes: string[];
   stockBySize: Record<string, number>;
-  images: ProductImage[];
   badge?: ProductBadge;
   description: string;
   benefits: string[];

@@ -1,27 +1,34 @@
 import { ArrowRight, Check, ChevronLeft, Minus, Package, Plus, RotateCcw, Star, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ProductCard } from '@/components/product/ProductCard';
 import { ProductGallery } from '@/components/product/ProductGallery';
 import { SizeGuideDialog } from '@/components/product/SizeGuideDialog';
 import { Seo } from '@/components/Seo';
-import { getProductById, getRelatedProducts } from '@/data/products';
+import { getProductById, getProductVariant, getRelatedProducts } from '@/data/products';
 import { useCart } from '@/context/CartContext';
 import { formatCurrency, formatInstallments } from '@/lib/format';
-import type { ProductColor } from '@/types/product';
+import type { ProductVariant } from '@/types/product';
 
 export default function ProductDetail() {
   const { id = '' } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const product = getProductById(id);
+  const requestedColor = searchParams.get('cor') ?? undefined;
   const { addItem } = useCart();
-  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(product?.colors[0] ?? null);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
+    product ? getProductVariant(product, requestedColor) : null,
+  );
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectionError, setSelectionError] = useState(false);
 
   useEffect(() => {
-    setSelectedColor(product?.colors[0] ?? null);
+    setSelectedVariant(product ? getProductVariant(product, requestedColor) : null);
+  }, [product, requestedColor]);
+
+  useEffect(() => {
     setSelectedSize(null);
     setQuantity(1);
     setSelectionError(false);
@@ -52,19 +59,30 @@ export default function ProductDetail() {
   };
 
   const handleAddToCart = () => {
-    if (!selectedColor || !selectedSize) {
+    if (!selectedVariant || !selectedSize) {
       setSelectionError(true);
       return;
     }
-    addItem(product, selectedColor, selectedSize, quantity);
+    addItem(product, selectedVariant.color, selectedSize, quantity);
   };
+
+  const selectVariant = (variant: ProductVariant) => {
+    setSelectedVariant(variant);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('cor', variant.color.id);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const fallbackVariant = getProductVariant(product);
+  const selectedImages = selectedVariant?.images ?? fallbackVariant.images;
+  const selectedColor = selectedVariant?.color ?? fallbackVariant.color;
 
   return (
     <Layout>
       <Seo
         title={product.name}
         description={`${product.subtitle}. ${product.description}`}
-        image={product.images[0].src}
+        image={selectedImages[0].src}
         type="product"
       />
 
@@ -77,7 +95,11 @@ export default function ProductDetail() {
       </div>
 
       <section className="product-page page-shell" aria-labelledby="product-title">
-        <ProductGallery images={product.images} productName={product.name} />
+        <ProductGallery
+          images={selectedImages}
+          productName={product.name}
+          selectedColor={selectedColor}
+        />
 
         <div className="product-buybox">
           <div className="product-buybox__sticky">
@@ -98,21 +120,25 @@ export default function ProductDetail() {
               <small>{formatInstallments(product.price)}</small>
             </div>
 
+            <p className="product-buybox__description">{product.description}</p>
+
             <fieldset className="product-option">
-              <legend>Cor <span>{selectedColor?.name}</span></legend>
+              <legend>Cor <span>{selectedColor.name}</span></legend>
               <div className="product-colors">
-                {product.colors.map((color) => {
-                  const active = selectedColor?.id === color.id;
+                {product.variants.map((variant) => {
+                  const { color } = variant;
+                  const active = selectedColor.id === color.id;
                   return (
                     <button
                       key={color.id}
                       type="button"
                       className={active ? 'is-active' : undefined}
-                      onClick={() => setSelectedColor(color)}
+                      onClick={() => selectVariant(variant)}
                       aria-pressed={active}
                       aria-label={color.name}
                     >
                       <span style={{ backgroundColor: color.hex }} aria-hidden="true" />
+                      {active && <Check aria-hidden="true" />}
                     </button>
                   );
                 })}
@@ -168,8 +194,7 @@ export default function ProductDetail() {
 
             <div className="product-details">
               <details open>
-                <summary>Sobre a peça <Plus aria-hidden="true" /></summary>
-                <p>{product.description}</p>
+                <summary>Tecnologia & benefícios <Plus aria-hidden="true" /></summary>
                 <ul>{product.benefits.map((benefit) => <li key={benefit}><Check aria-hidden="true" />{benefit}</li>)}</ul>
               </details>
               <details>

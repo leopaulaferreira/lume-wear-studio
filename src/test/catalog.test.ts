@@ -3,6 +3,25 @@ import { products } from '@/data/products';
 import { emptyFilters, filterAndSortProducts, normalizeSearch } from '@/lib/catalog';
 
 describe('catálogo Lume Wear', () => {
+  it('mantém uma galeria válida e independente para cada cor', () => {
+    products.forEach((product) => {
+      expect(product.variants.length).toBeGreaterThan(0);
+      product.variants.forEach((variant) => {
+        expect(variant.color.id).toBeTruthy();
+        expect(variant.images.length).toBeGreaterThan(0);
+      });
+
+      if (product.variants.length > 1) {
+        expect(product.variants[1].images).not.toBe(product.variants[0].images);
+      }
+
+      expect(new Set(product.variants.map((variant) => variant.images[0].src)).size).toBe(
+        product.variants.length,
+      );
+      expect(product.variants.every((variant) => !variant.usesImageFallback)).toBe(true);
+    });
+  });
+
   it('normaliza buscas em português e encontra produtos por descrição', () => {
     expect(normalizeSearch('  Compressão ')).toBe('compressao');
     const result = filterAndSortProducts(products, {

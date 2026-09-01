@@ -57,7 +57,9 @@ export const filterAndSortProducts = (
 
     if (
       filters.colors.length > 0 &&
-      !filters.colors.some((colorId) => product.colors.some((color) => color.id === colorId))
+      !filters.colors.some((colorId) =>
+        product.variants.some((variant) => variant.color.id === colorId),
+      )
     ) {
       return false;
     }
@@ -97,4 +99,3 @@ export const countActiveFilters = (filters: FilterState) =>
   filters.genders.length +
   filters.colors.length +
   filters.sizes.length;
-

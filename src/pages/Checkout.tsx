@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { BrandMark } from '@/components/layout/BrandMark';
 import { Seo } from '@/components/Seo';
 import { useCart } from '@/context/CartContext';
+import { getPrimaryProductImage } from '@/data/products';
 import { FREE_SHIPPING_THRESHOLD, getCartItemKey } from '@/lib/cart';
 import {
   checkoutSchema,
@@ -294,16 +295,20 @@ export default function Checkout() {
           <div className="order-summary__sticky">
             <div className="order-summary__heading"><h2>Sua seleção</h2><span>{items.reduce((total, item) => total + item.quantity, 0)} itens</span></div>
             <div className="order-summary__items">
-              {items.map((item) => (
+              {items.map((item) => {
+                const image = getPrimaryProductImage(item.product, item.selectedColor.id);
+
+                return (
                 <article key={getCartItemKey(item)} className="order-summary-item">
                   <div className="order-summary-item__image">
-                    <img src={item.product.images[0].src} alt="" width="1122" height="1402" />
+                    <img src={image.src} alt="" width="1122" height="1402" />
                     <span>{item.quantity}</span>
                   </div>
                   <div><h3>{item.product.name}</h3><p>{item.selectedColor.name} · {item.selectedSize}</p></div>
                   <strong>{formatCurrency(item.product.price * item.quantity)}</strong>
                 </article>
-              ))}
+                );
+              })}
             </div>
             <dl className="order-summary__totals">
               <div><dt>Subtotal</dt><dd>{formatCurrency(totalPrice)}</dd></div>

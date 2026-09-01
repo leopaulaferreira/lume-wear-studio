@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowRight, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { products } from '@/data/products';
+import { getPrimaryProductImage, products } from '@/data/products';
 import { normalizeSearch } from '@/lib/catalog';
 import { formatCurrency } from '@/lib/format';
 
@@ -78,26 +78,30 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
 
             {results.length > 0 ? (
               <div className="search-results-grid">
-                {results.map((product) => (
-                  <Link
-                    key={product.id}
-                    to={`/produto/${product.id}`}
-                    onClick={() => onOpenChange(false)}
-                    className="search-result"
-                  >
-                    <img
-                      src={product.images[0].src}
-                      alt=""
-                      width="1122"
-                      height="1402"
-                      loading="lazy"
-                    />
-                    <span>
-                      <strong>{product.name}</strong>
-                      <small>{formatCurrency(product.price)}</small>
-                    </span>
-                  </Link>
-                ))}
+                {results.map((product) => {
+                  const image = getPrimaryProductImage(product);
+
+                  return (
+                    <Link
+                      key={product.id}
+                      to={`/produto/${product.id}`}
+                      onClick={() => onOpenChange(false)}
+                      className="search-result"
+                    >
+                      <img
+                        src={image.src}
+                        alt=""
+                        width="1122"
+                        height="1402"
+                        loading="lazy"
+                      />
+                      <span>
+                        <strong>{product.name}</strong>
+                        <small>{formatCurrency(product.price)}</small>
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             ) : (
               <div className="search-dialog__empty">
